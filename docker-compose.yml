@@ -1,0 +1,14 @@
+services:
+  excel-api:
+    build: .
+    restart: always
+    #network_mode: "host"
+    ports:
+      - "8025:8025"
+    #volumes:
+    #  - ./data:/app/data/
+    #env_file:
+    #  - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONIOENCODING=UTF-8
