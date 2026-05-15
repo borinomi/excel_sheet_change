@@ -87,9 +87,6 @@ def replace_sheet_in_xlsx(
     sheet_name: str,
     new_data: list[dict[str, Any]]
 ) -> bytes:
-    """
-    대상 시트 XML 만 교체, 피벗캐시 등 나머지는 100% 보존
-    """
     target_path = get_sheet_xml_filename(xlsx_bytes, sheet_name)
     new_sheet_xml = build_new_sheet_xml(new_data)
 
@@ -101,6 +98,24 @@ def replace_sheet_in_xlsx(
         for item in zin.infolist():
             if item.filename == target_path:
                 zout.writestr(item, new_sheet_xml)
+            elif item.filename == "xl/calcChain.xml":
+                pass  # ← 추가: calcChain 제거
+            elif item.filename == "xl/workbook.xml":
+                # ← 추가: 강제 재계산 플래그
+                wb_xml = zin.read(item.filename).decode("utf-8")
+                if "fullCalcOnLoad" not in wb_xml:
+                    if "calcPr" in wb_xml:
+                        wb_xml = re.sub(
+                            r"<calcPr([^/]*?)/>",
+                            r'<calcPr\1 fullCalcOnLoad="1"/>',
+                            wb_xml
+                        )
+                    else:
+                        wb_xml = wb_xml.replace(
+                            "</workbook>",
+                            '<calcPr fullCalcOnLoad="1"/></workbook>'
+                        )
+                zout.writestr(item, wb_xml.encode("utf-8"))
             else:
                 zout.writestr(item, zin.read(item.filename))
 
@@ -165,4 +180,4 @@ async def replace_excel_sheet(
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8025)
+    uvicorn.run(app, host="0.0.0.0", port=8027)
