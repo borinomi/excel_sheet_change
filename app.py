@@ -180,19 +180,10 @@ async def replace_excel_sheet(
 
 @app.post("/excel/sheet-names")
 async def sheet_names(file: UploadFile = File(...)):
-    job_id = uuid.uuid4().hex
-    job_dir = WORK_DIR / job_id
-    job_dir.mkdir()
-
-    input_path = job_dir / file.filename
-    with open(input_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
-
-    wb = load_workbook(input_path, read_only=True, data_only=True)
+    xlsx_bytes = await file.read()
+    wb = load_workbook(io.BytesIO(xlsx_bytes), read_only=True, data_only=True)
     names = wb.sheetnames
     wb.close()
-
-    shutil.rmtree(job_dir, ignore_errors=True)
     return {"sheets": names}
 
 if __name__ == "__main__":
