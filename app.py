@@ -186,5 +186,48 @@ async def sheet_names(file: UploadFile = File(...)):
     wb.close()
     return {"sheets": names}
 
+@app.post("/excel/read-sheet")
+async def read_sheet(
+    file: UploadFile = File(...),
+    sheet_name: str = Form(...),
+):
+    xlsx_bytes = await file.read()
+    wb = load_workbook(io.BytesIO(xlsx_bytes), data_only=True)
+    ws = wb[sheet_name]
+
+    rows = []
+    for row in ws.iter_rows(min_row=1, values_only=False):
+        rows.append({
+            "row_number": row[0].row,
+            "cells": [{"col": cell.column_letter, "value": cell.value} for cell in row]
+        })
+
+    wb.close()
+    return {"sheet": sheet_name, "rows": rows}
+
+@app.post("/excel/update-cells")
+async def update_cells(
+    file: UploadFile = File(...),
+    sheet_name: str = Form(...),
+    updates: str = Form(...),
+):
+    xlsx_bytes = await file.read()
+    wb = load_workbook(io.BytesIO(xlsx_bytes))
+    ws = wb[sheet_name]
+
+    for item in json.loads(updates):
+        ws[item["cell"]] = item["value"]
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{file.filename}"'},
+    )
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8025)
